@@ -1,17 +1,23 @@
 # RateLimiter Service
 
-A production-ready distributed rate limiting microservice built with Spring Boot. Uses Redis for atomic sliding window counting and MySQL for persistent async audit logging. Fully containerized with Docker Compose.
+A production-ready, plug-and-play distributed rate limiting microservice built with Spring Boot. Drop it alongside any backend app and protect your routes from abuse.
 
 ---
 
-## What It Does
+## How It Works
 
-Any service can call this API to check if a client has exceeded their request quota.
+Any backend service makes a single HTTP call before processing a request:
 
-- ✅ Returns `200 OK` with remaining requests if allowed
-- ❌ Returns `429 Too Many Requests` if limit exceeded
-- 📋 Logs every request asynchronously to MySQL
-- ❤️ Exposes health check endpoint for orchestration
+```
+Your App  →  POST /api/rate-limit/check?clientKey=ip:route&maxReq=5  →  RateLimiter
+                                                                              │
+                                                                    allowed / denied
+```
+
+- Returns `200 OK` if the client is within their limit
+- Returns `429 Too Many Requests` if limit exceeded
+- Logs every request asynchronously to MySQL for audit trail
+- Exposes `/actuator/health` for Docker/K8s orchestration
 
 ---
 
@@ -21,29 +27,34 @@ Any service can call this API to check if a client has exceeded their request qu
 Client Request
       │
       ▼
-┌─────────────────────┐
-│  RateLimitController│  ← REST layer, sets X-RateLimit-* headers
-└────────┬────────────┘
-         │
-         ├──────────────────────────────────┐
-         ▼                                  ▼
-┌─────────────────────┐          ┌─────────────────────┐
-│  RateLimiterService │          │     LogService       │
-│  (Sliding Window)   │          │  (@Async writes)     │
-└────────┬────────────┘          └──────────┬──────────┘
-         │                                  │
-         ▼                                  ▼
-┌─────────────────────┐          ┌─────────────────────┐
-│       Redis         │          │       MySQL          │
-│  (atomic counters)  │          │   (audit logs)       │
-└─────────────────────┘          └─────────────────────┘
+┌─────────────────────────┐
+│   RateLimitController   │  ← REST layer
+└────────────┬────────────┘
+             │
+     ┌───────┴────────┐
+     ▼                ▼
+┌──────────────┐   ┌──────────────┐
+│ RateLimiter  │   │  LogService  │
+│   Service    │   │  (@Async)    │
+│  Sliding     │   │              │
+│  Window      │   │              │
+└──────┬───────┘   └──────┬───────┘
+       │                  │
+       ▼                  ▼
+┌──────────────┐   ┌──────────────┐
+│    Redis     │   │    MySQL     │
+│ (counters)   │   │ (audit logs) │
+└──────────────┘   └──────────────┘
 ```
 
 ### Why Redis for counting?
-Redis `INCREMENT` is atomic — safe under concurrent requests without locks. Counters auto-expire with TTL so no cleanup needed.
+Redis `INCREMENT` is atomic — safe under concurrent requests without locks. Keys auto-expire via TTL so no cleanup code needed. Sub-millisecond latency means zero impact on your API response time.
 
 ### Why MySQL for logs?
-Persistent, queryable audit trail. Written asynchronously so it never slows down the response.
+Persistent, queryable audit trail. Written on a separate thread via `@Async` so the log write never blocks your response.
+
+### Why separate microservice?
+One rate limiter, many apps. your auth service, your payment API — all plug into the same instance. Each route gets its own limit. Zero duplication.
 
 ---
 
@@ -51,23 +62,31 @@ Persistent, queryable audit trail. Written asynchronously so it never slows down
 
 | Layer | Tool | Reason |
 |---|---|---|
-| Framework | Spring Boot 3 | Production-grade, fast setup |
+| Framework | Spring Boot 3 | Production-grade, minimal config |
 | Rate counting | Redis | Atomic ops, TTL, sub-millisecond |
 | Audit logs | MySQL + JPA | Persistent, queryable |
 | Async writes | `@Async` + Spring thread pool | Non-blocking log writes |
 | Health check | Spring Actuator | Docker/K8s readiness |
-| Containerization | Docker + Docker Compose | Run anywhere |
+| Containerization | Docker + Docker Compose | Run anywhere, one command |
 
 ---
 
-## API Endpoints
+## API Reference
 
 ### Check Rate Limit
+
 ```
-POST /api/rate-limit/check?clientKey={key}
+POST /api/rate-limit/check
 ```
 
-**Response Body (allowed):** `200 OK`
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `clientKey` | string | ✅ | — | Unique identifier (e.g. `ip:route(Client IP + URI)`) |
+| `maxReq` | int | ❌ | `10` | Max requests allowed in window |
+| `resetInSeconds` | long | ❌ | `60` | Window size in seconds |
+
+
+**Response `200 OK` (allowed):**
 ```json
 {
   "allowed": true,
@@ -76,7 +95,7 @@ POST /api/rate-limit/check?clientKey={key}
 }
 ```
 
-**Response Body (denied):** `429 Too Many Requests`
+**Response `429 Too Many Requests` (denied):**
 ```json
 {
   "allowed": false,
@@ -88,20 +107,21 @@ POST /api/rate-limit/check?clientKey={key}
 ---
 
 ### Get Logs for a Client
+
 ```
 GET /api/rate-limit/logs/{clientKey}
 ```
 
-**Response:** `200 OK`
+**Response `200 OK`:**
 ```json
 [
   {
     "id": 1,
-    "clientKey": "user123",
-    "ipAddress": "172.18.0.1",
+    "clientKey": "192.168.1.1:/{URI}",
+    "ipAddress": "192.168.1.1",
     "allowed": true,
-    "remainingReq": 3,
-    "timestamp": "2026-01-15T10:30:00"
+    "remainingReq": 4,
+    "timestamp": "2026-05-07T11:21:51"
   }
 ]
 ```
@@ -109,30 +129,84 @@ GET /api/rate-limit/logs/{clientKey}
 ---
 
 ### Health Check
+
 ```
 GET /actuator/health
 ```
 
-**Response:** `200 OK`
+**Response `200 OK`:**
 ```json
 {
   "status": "UP",
   "components": {
     "db": { "status": "UP" },
-    "redis": { "status": "UP" }
+    "redis": { "status": "UP" },
+    "diskSpace": { "status": "UP" }
   }
 }
 ```
 
 ---
 
+## Integrating Into Your App
+
+### Step 1 — Get the client IP
+
+```java
+public String getClientIP(HttpServletRequest request) {
+    String ip = request.getHeader("X-Forwarded-For");
+    return (ip != null) ? ip : request.getRemoteAddr();
+}
+```
+
+### Step 2 — Call the rate limiter before processing
+
+```java
+@PostMapping("/apiRoute")
+public ResponseEntity<?> {funcName}(HttpServletRequest request) {
+
+    // clientKey = [Client IP + URI]
+    String clientKey = getClientIP(request) + req.getRequestURI();
+    String url = "http://ratelimiter:8080/api/rate-limit/check"
+               + "?clientKey=" + clientKey
+               + "&maxReq=5" //optional or default 5
+               + "&resetInSeconds=60"; // optional or default 60 sec
+
+    ResponseEntity<RateLimitResponse> check =
+        restTemplate.postForEntity(url, null, RateLimitResponse.class);
+
+    if (!check.getBody().isAllowed()) {
+        return ResponseEntity.status(429).body("Too many requests. Slow down.");
+    }
+
+    // your actual logic here
+}
+```
+
+### Step 3 — Set per-route limits independently
+
+```java
+// Strict — link creation
+"?clientKey=" + ip + ":/{URI}&maxReq=5&resetInSeconds=60"
+
+// Relaxed — reading stats
+"?clientKey=" + ip + ":/{URI}&maxReq=30&resetInSeconds=60"
+
+// Very strict — auth endpoints
+"?clientKey=" + ip + ":/{URI}&maxReq=3&resetInSeconds=300"
+```
+clientKey = [Client IP + URI]
+Each route gets its own independent Redis counter because clientKeys are unique for each URI.
+
+---
+
 ## Running Locally
 
 ### Prerequisites
-- Docker + Docker Compose
-- That's it!
+- Docker + Docker Compose (that's it - no Java, no MySQL, no Redis needed)
 
-### Start Everything
+### Start
+
 ```bash
 git clone https://github.com/jainish/RateLimiterService.git
 cd RateLimiterService
@@ -140,13 +214,16 @@ docker-compose up --build
 ```
 
 App runs at `http://localhost:8080`
+Docs UI at `http://localhost:8080/api/rate-limit`
 
 ### Stop
+
 ```bash
 docker-compose down
 ```
 
-### Stop and wipe data
+### Stop and wipe all data
+
 ```bash
 docker-compose down -v
 ```
@@ -157,42 +234,44 @@ docker-compose down -v
 
 **PowerShell:**
 ```powershell
-# Check rate limit
-curl.exe -X POST "http://localhost:8080/api/rate-limit/check?clientKey=user123"
+# Basic check (default limits)
+curl.exe -X POST "http://localhost:8080/api/rate-limit/check?clientKey=myip:/{URI}"
+
+# Custom limits
+curl.exe -X POST "http://localhost:8080/api/rate-limit/check?clientKey=myip:/{URI}&maxReq=5&resetInSeconds=60"
 
 # Get logs
-curl.exe -X GET "http://localhost:8080/api/rate-limit/logs/user123"
+curl.exe -X GET "http://localhost:8080/api/rate-limit/logs/myip:/{URI}"
 
-# Health check
+# Health
 curl.exe -X GET "http://localhost:8080/actuator/health"
 ```
 
-**Command Prompt / Linux / Mac:**
+**curl (CMD / Linux / Mac):**
 ```bash
-# Check rate limit
-curl -X POST "http://localhost:8080/api/rate-limit/check?clientKey=user123"
-
-# Get logs
-curl -X GET "http://localhost:8080/api/rate-limit/logs/user123"
-
-# Health check
+curl -X POST "http://localhost:8080/api/rate-limit/check?clientKey=myip:/{URI}&maxReq=5&resetInSeconds=60"
+curl -X GET "http://localhost:8080/api/rate-limit/logs/myip:/{URI}"
 curl -X GET "http://localhost:8080/actuator/health"
 ```
 
-Hit the check endpoint 11 times — first 10 return `200`, 11th returns `429`.
+clientKey = [Client IP + URI]
+
+Hit the check endpoint 6 times with `maxReq=5` — first 5 return `200`, 6th returns `429`.
 
 ---
 
 ## Configuration
 
-Edit `docker-compose.yml` or pass as environment variables:
+All config is passed via environment variables in `docker-compose.yml`:
 
-| Property | Default | Description |
+| Variable | Default | Description |
 |---|---|---|
-| `rate.limiter.max-requests` | `10` | Max requests per window |
-| `rate.limiter.window-seconds` | `60` | Window size in seconds |
-| `spring.redis.host` | `docker container` | Redis host |
-| `spring.datasource.url` | `docker container` | MySQL JDBC URL |
+| `SPRING_REDIS_HOST` | `redis` | Redis hostname |
+| `SPRING_DATASOURCE_URL` | MySQL container | Full JDBC URL |
+| `SPRING_DATASOURCE_USERNAME` | `root` | MySQL user |
+| `SPRING_DATASOURCE_PASSWORD` | `passwd` | MySQL password |
+
+Per-request limits (`maxReq`, `resetInSeconds`) are passed by the calling app - the rate limiter has no hardcoded business logic.
 
 ---
 
@@ -201,17 +280,21 @@ Edit `docker-compose.yml` or pass as environment variables:
 ```
 src/main/java/com/jainish/ratelimiter/
 ├── controller/
-│   └── RateLimitController.java     # REST endpoints, response headers
+│   └── RateLimitController.java     # REST endpoints, X-RateLimit headers
 ├── service/
-│   ├── RateLimiterService.java      # Sliding window logic with Redis
-│   └── LogService.java              # Async log writes to MySQL
-├── model/
+│   ├── RateLimiterService.java      # Sliding window logic, Redis ops
+│   └── LogService.java              # Async audit log writes
+├── entity/
 │   ├── RateLimitResponse.java       # API response model
-│   └── RequestLog.java              # JPA entity for audit logs
+│   └── RequestLog.java              # JPA entity
 ├── repository/
-│   └── RequestLogRepository.java    # Spring Data JPA repo
+│   └── RequestLogRepository.java    # Spring Data JPA
 └── config/
     └── RedisConfig.java             # StringRedisTemplate bean
 ```
 
 ---
+
+## License
+
+MIT
