@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RateLimiter API Docs</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0b;
+    --surface: #111114;
+    --surface2: #18181d;
+    --border: #222228;
+    --border2: #2e2e38;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --accent: #00e5a0;
+    --accent2: #0066ff;
+    --warn: #ff6b35;
+    --red: #ff4444;
+    --green: #00e5a0;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  /* Noise overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: 100vh;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 0;
+    scrollbar-width: none;
+  }
+
+  .sidebar::-webkit-scrollbar { display: none; }
+
+  .sidebar-header {
+    padding: 28px 24px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    font-family: var(--sans);
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .logo-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .logo-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 300;
+    margin-top: 2px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .version-badge {
+    display: inline-block;
+    background: rgba(0, 229, 160, 0.1);
+    border: 1px solid rgba(0, 229, 160, 0.2);
+    color: var(--accent);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-top: 8px;
+    letter-spacing: 0.5px;
+  }
+
+  .nav {
+    padding: 16px 0;
+  }
+
+  .nav-section {
+    padding: 8px 24px 4px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 24px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 12px;
+    transition: all 0.15s;
+    border-left: 2px solid transparent;
+    cursor: pointer;
+  }
+
+  .nav-item:hover {
+    color: var(--text);
+    background: rgba(255,255,255,0.03);
+    border-left-color: var(--border2);
+  }
+
+  .nav-item.active {
+    color: var(--accent);
+    border-left-color: var(--accent);
+    background: rgba(0, 229, 160, 0.05);
+  }
+
+  .method-tag {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+  }
+
+  .tag-post { background: rgba(0, 102, 255, 0.2); color: #4d9fff; }
+  .tag-get { background: rgba(0, 229, 160, 0.2); color: var(--accent); }
+
+  /* MAIN */
+  .main {
+    padding: 0;
+    max-width: 860px;
+  }
+
+  /* HERO */
+  .hero {
+    padding: 60px 60px 40px;
+    border-bottom: 1px solid var(--border);
+    animation: fadeUp 0.6s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .hero-tag {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .hero-tag::before {
+    content: '';
+    width: 24px;
+    height: 1px;
+    background: var(--accent);
+  }
+
+  h1 {
+    font-family: var(--sans);
+    font-size: 42px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -1.5px;
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+
+  h1 span { color: var(--accent); }
+
+  .hero-desc {
+    color: var(--muted);
+    font-size: 14px;
+    max-width: 520px;
+    line-height: 1.7;
+    margin-bottom: 28px;
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 32px;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .stat-val {
+    font-family: var(--sans);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .stat-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* SECTIONS */
+  .section {
+    padding: 48px 60px;
+    border-bottom: 1px solid var(--border);
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .section:nth-child(2) { animation-delay: 0.1s; }
+  .section:nth-child(3) { animation-delay: 0.15s; }
+  .section:nth-child(4) { animation-delay: 0.2s; }
+  .section:nth-child(5) { animation-delay: 0.25s; }
+
+  .section-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  h2 {
+    font-family: var(--sans);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 20px;
+    color: var(--text);
+  }
+
+  h3 {
+    font-family: var(--sans);
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--text);
+  }
+
+  p {
+    color: var(--muted);
+    margin-bottom: 16px;
+    line-height: 1.7;
+  }
+
+  /* ENDPOINT CARD */
+  .endpoint-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 24px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .endpoint-card:hover { border-color: var(--border2); }
+
+  .endpoint-header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+
+  .method {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+  }
+
+  .method-post { background: rgba(0, 102, 255, 0.15); color: #4d9fff; border: 1px solid rgba(0,102,255,0.2); }
+  .method-get { background: rgba(0, 229, 160, 0.1); color: var(--accent); border: 1px solid rgba(0,229,160,0.2); }
+
+  .endpoint-path {
+    font-size: 13px;
+    color: var(--text);
+    letter-spacing: 0.3px;
+  }
+
+  .endpoint-desc {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .endpoint-body { padding: 20px; }
+
+  /* PARAMS TABLE */
+  .params-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    font-size: 12px;
+  }
+
+  .params-table th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+  }
+
+  .params-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  .params-table tr:last-child td { border-bottom: none; }
+
+  .param-name {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .param-type {
+    color: #4d9fff;
+    font-size: 11px;
+  }
+
+  .param-required {
+    color: var(--warn);
+    font-size: 10px;
+  }
+
+  .param-optional {
+    color: var(--muted);
+    font-size: 10px;
+  }
+
+  .param-desc { color: var(--muted); }
+
+  .param-default {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-size: 11px;
+    color: var(--text);
+  }
+
+  /* CODE BLOCK */
+  .code-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }
+
+  .code-lang {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .copy-btn {
+    background: none;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.5px;
+  }
+
+  .copy-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .copy-btn.copied {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  pre {
+    padding: 16px;
+    overflow-x: auto;
+    font-size: 12px;
+    line-height: 1.6;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border2) transparent;
+  }
+
+  .kw { color: #4d9fff; }
+  .str { color: #ffb347; }
+  .cm { color: var(--muted); font-style: italic; }
+  .num { color: var(--accent); }
+  .fn { color: #c084fc; }
+  .var { color: var(--text); }
+
+  /* RESPONSE BLOCK */
+  .response-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .resp-tab {
+    padding: 8px 16px;
+    font-size: 11px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .resp-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  .dot-green { background: var(--green); }
+  .dot-red { background: var(--red); }
+  .dot-warn { background: var(--warn); }
+
+  /* HEADERS TABLE */
+  .headers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+
+  .header-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  .header-key { color: #4d9fff; flex: 0 0 200px; }
+  .header-val { color: var(--accent); }
+  .header-desc { color: var(--muted); margin-left: auto; font-size: 11px; }
+
+  /* INTEGRATION STEPS */
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    counter-reset: step;
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: 20px;
+    padding-bottom: 32px;
+    position: relative;
+  }
+
+  .step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 23px;
+    top: 48px;
+    bottom: 0;
+    width: 1px;
+    background: var(--border);
+  }
+
+  .step-num {
+    width: 48px;
+    height: 48px;
+    border: 1px solid var(--border2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--sans);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    background: var(--surface);
+    flex-shrink: 0;
+    z-index: 1;
+  }
+
+  .step-content h3 { margin-bottom: 6px; }
+  .step-content p { margin-bottom: 10px; }
+
+  /* ALERT */
+  .alert {
+    padding: 12px 16px;
+    border-radius: 6px;
+    border-left: 3px solid;
+    margin-bottom: 16px;
+    font-size: 12px;
+  }
+
+  .alert-info {
+    background: rgba(0, 102, 255, 0.07);
+    border-color: #4d9fff;
+    color: #99c2ff;
+  }
+
+  .alert-warn {
+    background: rgba(255, 107, 53, 0.07);
+    border-color: var(--warn);
+    color: #ffaa80;
+  }
+
+  .alert-success {
+    background: rgba(0, 229, 160, 0.07);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* EXAMPLES GRID */
+  .examples-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .example-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    transition: border-color 0.2s;
+  }
+
+  .example-card:hover { border-color: var(--border2); }
+
+  .example-route {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+  }
+
+  .example-limit {
+    font-family: var(--sans);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 2px;
+  }
+
+  .example-window {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* FLOW DIAGRAM */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin: 24px 0;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+
+  .flow-node {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 12px 16px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .flow-node-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .flow-node-name {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .flow-node.accent {
+    border-color: rgba(0, 229, 160, 0.3);
+    background: rgba(0, 229, 160, 0.05);
+  }
+
+  .flow-node.accent .flow-node-name { color: var(--accent); }
+
+  .flow-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 0 8px;
+    flex-shrink: 0;
+  }
+
+  .flow-arrow-line {
+    width: 32px;
+    height: 1px;
+    background: var(--border2);
+  }
+
+  .flow-arrow-label {
+    font-size: 9px;
+    color: var(--muted);
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* FOOTER */
+  .footer {
+    padding: 32px 60px;
+    color: var(--muted);
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .hero, .section { padding: 32px 24px; }
+    .examples-grid { grid-template-columns: 1fr; }
+    .footer { padding: 24px; flex-direction: column; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <div class="logo-dot"></div>
+        RateLimiter
+      </div>
+      <div class="logo-sub">API Documentation</div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-section">Overview</div>
+      <a class="nav-item active" href="#overview">Introduction</a>
+      <a class="nav-item" href="#how-it-works">How It Works</a>
+      <a class="nav-item" href="#quickstart">Quickstart</a>
+
+      <div class="nav-section" style="margin-top:8px">Endpoints</div>
+      <a class="nav-item" href="#check">
+        <span class="method-tag tag-post">POST</span> /check
+      </a>
+      <a class="nav-item" href="#logs">
+        <span class="method-tag tag-get">GET</span> /logs
+      </a>
+      <a class="nav-item" href="#health">
+        <span class="method-tag tag-get">GET</span> /health
+      </a>
+
+      <div class="nav-section" style="margin-top:8px">Integration</div>
+      <a class="nav-item" href="#integrate">Your Backend</a>
+      <a class="nav-item" href="#per-route">Per-Route Limits</a>
+      <a class="nav-item" href="#client-key">Client Key Strategy</a>
+    </nav>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <!-- HERO -->
+    <section class="hero" id="overview">
+      <div class="hero-tag">Rate Limiting service</div>
+      <h1>Protect your API.<br><span>Plug in anywhere.</span></h1>
+      <p class="hero-desc">
+        A standalone Spring Boot service that sits beside your backend and enforces request limits via a single HTTP call. Redis-backed, async-logged, Docker-ready.
+      </p>
+      <div class="hero-stats">
+        <div class="stat">
+          <div class="stat-val">&lt;1ms</div>
+          <div class="stat-label">Redis latency</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val">∞</div>
+          <div class="stat-label">Apps supported</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val">1 cmd</div>
+          <div class="stat-label">To deploy</div>
+        </div>
+      </div>
+      
+      <br>
+        <p class="hero-desc">
+          Redis-backed, async-logged, Docker-ready.
+        </p>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="section" id="how-it-works">
+      <div class="section-label">Architecture</div>
+      <h2>How It Works</h2>
+      <p>Your app makes one HTTP call before processing any request. The rate limiter checks a Redis counter and responds instantly.</p>
+
+      <div class="flow">
+        <div class="flow-node">
+          <div class="flow-node-label">Client</div>
+          <div class="flow-node-name">Browser / App</div>
+        </div>
+        <div class="flow-arrow">
+          <div class="flow-arrow-line"></div>
+          <div class="flow-arrow-label">request</div>
+        </div>
+        <div class="flow-node">
+          <div class="flow-node-label">Your App</div>
+          <div class="flow-node-name">Any API</div>
+        </div>
+        <div class="flow-arrow">
+          <div class="flow-arrow-line"></div>
+          <div class="flow-arrow-label">POST /check</div>
+        </div>
+        <div class="flow-node accent">
+          <div class="flow-node-label">Rate Limiter</div>
+          <div class="flow-node-name">This Service</div>
+        </div>
+        <div class="flow-arrow">
+          <div class="flow-arrow-line"></div>
+          <div class="flow-arrow-label">allowed/denied</div>
+        </div>
+        <div class="flow-node">
+          <div class="flow-node-label">Storage</div>
+          <div class="flow-node-name">Redis + MySQL</div>
+        </div>
+      </div>
+
+      <div class="alert alert-info">
+        The rate limiter is completely stateless with respect to your business logic. It only knows: clientKey, req counts, and window size. Your app controls the limits per route.(default maxReq=10, resetInSeconds=60) You can use <code>clientKey</code> to implement any strategy you want — per IP, per user, or a global limit.
+      </div>
+    </section>
+
+    <!-- QUICKSTART -->
+    <section class="section" id="quickstart">
+      <div class="section-label">Setup</div>
+      <h2>Quickstart</h2>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h3>Clone & Run</h3>
+            <p>Docker handles Java, Redis, and MySQL — nothing to install.</p>
+            <div class="code-block">
+              <div class="code-header">
+                <span class="code-lang">bash</span>
+                <button class="copy-btn" onclick="copyCode(this)">copy</button>
+              </div>
+              <pre><span class="var">git clone https://github.com/jainish/RateLimiterService.git</span>
+<span class="var">cd RateLimiterService</span>
+<span class="var">docker-compose up --build</span></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h3>Test It</h3>
+            <p>Hit the check endpoint. First 10 req. return 200{success}, 11th returns 429{rate limiting}.</p>
+            <div class="code-block">
+              <div class="code-header">
+                <span class="code-lang">powershell</span>
+                <button class="copy-btn" onclick="copyCode(this)">copy</button>
+              </div>
+              <pre><span class="cm"># Check rate limit with custom limits</span>
+<span class="var">curl -X POST "http://localhost:8080/api/rate-limit/check</span>
+<span class="var">  ?clientKey={clientKey}&maxReq=10&resetInSeconds=60"</span></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h3>Verify Health</h3>
+            <p>Confirm Redis and MySQL are both connected.</p>
+            <div class="code-block">
+              <div class="code-header">
+                <span class="code-lang">bash</span>
+                <button class="copy-btn" onclick="copyCode(this)">copy</button>
+              </div>
+              <pre><span class="var">curl -X GET "http://localhost:8080/actuator/health"</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CHECK ENDPOINT -->
+    <section class="section" id="check">
+      <div class="section-label">Endpoints</div>
+      <h2>Check Rate Limit</h2>
+
+      <div class="endpoint-card">
+        <div class="endpoint-header">
+          <span class="method method-post">POST</span>
+          <span class="endpoint-path">/api/rate-limit/check</span>
+          <span class="endpoint-desc">Core endpoint</span>
+        </div>
+        <div class="endpoint-body">
+
+          <h3>Query Parameters</h3>
+          <table class="params-table">
+            <thead>
+              <tr>
+                <th>Parameter</th>
+                <th>Type</th>
+                <th>Required</th>
+                <th>Default</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="param-name">clientKey</span></td>
+                <td><span class="param-type">string</span></td>
+                <td><span class="param-required">required</span></td>
+                <td>—</td>
+                <td class="param-desc">Unique identifier. Use <code>ip:route</code> format.</td>
+              </tr>
+              <tr>
+                <td><span class="param-name">maxReq</span></td>
+                <td><span class="param-type">int</span></td>
+                <td><span class="param-optional">optional</span></td>
+                <td><span class="param-default">10</span></td>
+                <td class="param-desc">Max requests allowed in the window.</td>
+              </tr>
+              <tr>
+                <td><span class="param-name">resetInSeconds</span></td>
+                <td><span class="param-type">long</span></td>
+                <td><span class="param-optional">optional</span></td>
+                <td><span class="param-default">60</span></td>
+                <td class="param-desc">Window size in seconds.</td>
+              </tr>
+            </tbody>
+          </table>
+
+
+
+          <h3>Responses</h3>
+          <div class="resp-tab-group">
+            <div class="response-tabs">
+              <div class="resp-tab active">
+                <div class="status-dot dot-green"></div>200 Allowed
+              </div>
+              <div class="resp-tab">
+                <div class="status-dot dot-red"></div>429 Denied
+              </div>
+            </div>
+            <div class="code-block" style="border-radius: 0 0 6px 6px; border-top: none;">
+              <pre>{
+  <span class="kw">"allowed"</span>: <span class="num">true</span>,
+  <span class="kw">"remainingRequests"</span>: <span class="num">7</span>,
+  <span class="kw">"resetInSeconds"</span>: <span class="num">60</span>
+}</pre>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- LOGS ENDPOINT -->
+    <section class="section" id="logs">
+      <h2>Get Audit Logs</h2>
+
+      <div class="endpoint-card">
+        <div class="endpoint-header">
+          <span class="method method-get">GET</span>
+          <span class="endpoint-path">/api/rate-limit/logs/{clientKey}</span>
+          <span class="endpoint-desc">Audit trail</span>
+        </div>
+        <div class="endpoint-body">
+          <p>Returns all logged requests for a client, newest first. Logs are written asynchronously — there may be a brief delay after a request.</p>
+
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">response</span>
+            </div>
+            <pre>[
+  {
+    <span class="kw">"id"</span>: <span class="num">1</span>,
+    <span class="kw">"clientKey"</span>: <span class="str">"{clientKey = client ip + uri}"</span>,
+    <span class="kw">"ipAddress"</span>: <span class="str">"192.168.1.1"</span>,
+    <span class="kw">"allowed"</span>: <span class="num">true</span>,
+    <span class="kw">"remainingReq"</span>: <span class="num">4</span>,
+    <span class="kw">"timestamp"</span>: <span class="str">"2026-05-07T11:21:51"</span>
+  }
+]</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HEALTH ENDPOINT -->
+    <section class="section" id="health">
+      <h2>Health Check</h2>
+
+      <div class="endpoint-card">
+        <div class="endpoint-header">
+          <span class="method method-get">GET</span>
+          <span class="endpoint-path">/actuator/health</span>
+          <span class="endpoint-desc">Docker / K8s readiness</span>
+        </div>
+        <div class="endpoint-body">
+          <p>Used by Docker Compose and Kubernetes to verify the service and its dependencies are up before routing traffic.</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">response</span></div>
+            <pre>{
+  <span class="kw">"status"</span>: <span class="str">"UP"</span>,
+  <span class="kw">"components"</span>: {
+    <span class="kw">"db"</span>: { <span class="kw">"status"</span>: <span class="str">"UP"</span> },
+    <span class="kw">"redis"</span>: { <span class="kw">"status"</span>: <span class="str">"UP"</span> },
+    <span class="kw">"diskSpace"</span>: { <span class="kw">"status"</span>: <span class="str">"UP"</span> }
+  }
+}</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INTEGRATION -->
+    <section class="section" id="integrate">
+      <div class="section-label">Integration Guide</div>
+      <h2>Integrating Into Your App</h2>
+
+      <h3>Step 1 — Extract the client IP</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">java</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><span class="kw">public</span> <span class="fn">String</span> <span class="fn">getClientIP</span>(<span class="fn">HttpServletRequest</span> request) {
+    <span class="fn">String</span> ip = request.<span class="fn">getHeader</span>(<span class="str">"X-Forwarded-For"</span>);
+    <span class="kw">return</span> (ip != <span class="kw">null</span>) ? ip : request.<span class="fn">getRemoteAddr</span>();
+}</pre>
+      </div>
+
+      <h3>Step 2 — Call rate limiter before your logic</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">java</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><span class="kw">@PostMapping</span>(<span class="str">"/{apiRoute}"</span>)
+<span class="kw">public</span> <span class="fn">ResponseEntity</span>&lt;?&gt; <span class="fn">{funcName}</span>(<span class="fn">HttpServletRequest</span> request) {
+
+    <span class="fn">String</span> clientKey = <span class="fn">getClientIP</span>(request) + request<span class="fn">.getRequestURI();
+</span>
+    <span class="fn">String</span> url = <span class="str">"http://ratelimiter:8080/api/rate-limit/check"</span>
+               + <span class="str">"?clientKey="</span> + clientKey
+               + <span class="str">"&maxReq=5&resetInSeconds=60"</span>;
+
+    <span class="fn">ResponseEntity</span>&lt;<span class="fn">RateLimitResponse</span>&gt; check =
+        restTemplate.<span class="fn">postForEntity</span>(url, <span class="kw">null</span>, <span class="fn">RateLimitResponse</span>.<span class="kw">class</span>);
+
+    <span class="kw">if</span> (!check.<span class="fn">getBody</span>().<span class="fn">isAllowed</span>()) {
+        <span class="kw">return</span> <span class="fn">ResponseEntity</span>.<span class="fn">status</span>(<span class="num">429</span>).<span class="fn">body</span>(<span class="str">"Too many requests."</span>);
+    }
+
+    <span class="cm">// your actual logic here</span>
+}</pre>
+      </div>
+    </section>
+
+    <!-- PER ROUTE -->
+    <section class="section" id="per-route">
+      <div class="section-label">Per-Route Limits</div>
+      <h2>Setting Different Limits Per Route</h2>
+
+      <p>Each route gets its own independent Redis counter. Hitting <code>/shorten</code> doesn't affect the <code>/stats</code> counter.</p>
+
+      <div class="examples-grid">
+        <div class="example-card">
+          <div class="example-route">POST /shorten</div>
+          <div class="example-limit">5 req</div>
+          <div class="example-window">per 60 seconds — strict, creation is expensive</div>
+        </div>
+        <div class="example-card">
+          <div class="example-route">GET /stats/:code</div>
+          <div class="example-limit">30 req</div>
+          <div class="example-window">per 60 seconds — relaxed, reading is cheap</div>
+        </div>
+        <div class="example-card">
+          <div class="example-route">POST /login</div>
+          <div class="example-limit">3 req</div>
+          <div class="example-window">per 300 seconds — very strict, brute force protection</div>
+        </div>
+        <div class="example-card">
+          <div class="example-route">GET /public/*</div>
+          <div class="example-limit">100 req</div>
+          <div class="example-window">per 60 seconds — open, public content</div>
+        </div>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">java — per route examples</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><span class="cm">// Strict — link creation</span>
+<span class="str">"?clientKey="</span> + ip + <span class="str">":/{URI}&maxReq=5&resetInSeconds=60"</span>
+
+<span class="cm">// Relaxed — reading stats</span>  
+<span class="str">"?clientKey="</span> + ip + <span class="str">":/{URI}&maxReq=30&resetInSeconds=60"</span>
+
+<span class="cm">// Very strict — auth endpoints</span>
+<span class="str">"?clientKey="</span> + ip + <span class="str">":/{URI}&maxReq=3&resetInSeconds=300"</span></pre>
+      </div>
+    </section>
+
+    <!-- CLIENT KEY -->
+    <section class="section" id="client-key">
+      <div class="section-label">Best Practices</div>
+      <h2>Client Key Strategy</h2>
+
+      <p>The <code>clientKey</code> is the Redis counter key. How you construct it determines the scope of the limit.</p>
+
+      <table class="params-table" style="margin-bottom: 20px;">
+        <thead>
+          <tr>
+            <th>Strategy</th>
+            <th>clientKey format</th>
+            <th>Effect</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>IP only</td>
+            <td><span class="param-name">192.168.1.1</span></td>
+            <td class="param-desc">One shared limit across all routes — not recommended</td>
+          </tr>
+          <tr>
+            <td>IP + Route ✅</td>
+            <td><span class="param-name">192.168.1.1:/URI</span></td>
+            <td class="param-desc">Independent counter per route per IP — recommended</td>
+          </tr>
+          <tr>
+            <td>API Key + Route</td>
+            <td><span class="param-name">apikey_abc:/URI</span></td>
+            <td class="param-desc">For authenticated apps with API keys</td>
+          </tr>
+          <tr>
+            <td>User ID + Route</td>
+            <td><span class="param-name">user_123:/URI</span></td>
+            <td class="param-desc">For logged-in users — most precise</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="alert alert-warn">
+        URL-encode the clientKey if it contains special characters like <code>/</code> when passing as a query param. Or replace <code>/</code> with <code>-</code> — e.g. <code>192.168.1.1-shorten</code>.
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>RateLimiter Service — built by <a href="https://Jain1shh.is-a.dev">Jain1shh</a></span>
+    </footer>
+
+  </main>
+</div>
+
+<script>
+  function copyCode(btn) {
+    const pre = btn.closest('.code-block').querySelector('pre');
+    const text = pre.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = 'copy';
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  }
+
+  // Active nav on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const navItems = document.querySelectorAll('.nav-item');
+
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(s => {
+      if (window.scrollY >= s.offsetTop - 100) current = s.id;
+    });
+    navItems.forEach(item => {
+      item.classList.remove('active');
+      if (item.getAttribute('href') === '#' + current) {
+        item.classList.add('active');
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

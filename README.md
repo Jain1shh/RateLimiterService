@@ -53,7 +53,7 @@ Redis `INCREMENT` is atomic — safe under concurrent requests without locks. Ke
 ### Why MySQL for logs?
 Persistent, queryable audit trail. Written on a separate thread via `@Async` so the log write never blocks your response.
 
-### Why separate microservice?
+### Why separate oservice?
 One rate limiter, many apps. your auth service, your payment API — all plug into the same instance. Each route gets its own limit. Zero duplication.
 
 ---
