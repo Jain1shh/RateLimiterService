@@ -100,8 +100,8 @@ GET /api/rate-limit/logs/{clientKey}
     "clientKey": "user123",
     "ipAddress": "172.18.0.1",
     "allowed": true,
-    "requestCount": 3,
-    "timestamp": "2024-01-15T10:30:00"
+    "remainingReq": 3,
+    "timestamp": "2026-01-15T10:30:00"
   }
 ]
 ```
@@ -130,7 +130,7 @@ GET /actuator/health
 
 ### Prerequisites
 - Docker + Docker Compose
-- That's it — no Java or MySQL install needed
+- That's it!
 
 ### Start Everything
 ```bash
