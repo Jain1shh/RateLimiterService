@@ -134,8 +134,8 @@ GET /actuator/health
 
 ### Start Everything
 ```bash
-git clone https://github.com/jainish/ratelimiter.git
-cd ratelimiter
+git clone https://github.com/jainish/RateLimiterService.git
+cd RateLimiterService
 docker-compose up --build
 ```
 
@@ -185,14 +185,14 @@ Hit the check endpoint 11 times — first 10 return `200`, 11th returns `429`.
 
 ## Configuration
 
-Edit `application.properties` or pass as environment variables:
+Edit `docker-compose.yml` or pass as environment variables:
 
 | Property | Default | Description |
 |---|---|---|
 | `rate.limiter.max-requests` | `10` | Max requests per window |
 | `rate.limiter.window-seconds` | `60` | Window size in seconds |
-| `spring.redis.host` | `localhost` | Redis host |
-| `spring.datasource.url` | — | MySQL JDBC URL |
+| `spring.redis.host` | `docker container` | Redis host |
+| `spring.datasource.url` | `docker container` | MySQL JDBC URL |
 
 ---
 
