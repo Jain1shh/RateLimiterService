@@ -26,7 +26,13 @@ public class RateLimiterService {
         long remaining = Math.max(0, maxReq - count);
         boolean allowed = count <= maxReq;
         
-        return new RateLimitResponse(allowed, remaining, resetInSeconds);
+        Long ttl = redisTemplate.getExpire(redisKey, TimeUnit.SECONDS);
+
+        return new RateLimitResponse(
+            allowed,
+            remaining,
+            ttl
+        );
 		
 	}
 
