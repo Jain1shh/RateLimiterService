@@ -240,6 +240,15 @@ The `clientKey` is the Redis counter key. How you construct it determines the sc
 | API Key + Route | `apikey_abc:/URI` | For authenticated apps with API keys |
 | User ID + Route | `user_123:/URI` | For logged-in users — most precise |
 
+Note:
+Replace / in the URI with - before generating the clientKey.
+
+Example:
+```bash
+/api/users  →  -api-users
+/auth/login →  -auth-login
+```
+This prevents conflicts and keeps Redis keys clean and consistent. 
 ---
 
 ## Running Locally
